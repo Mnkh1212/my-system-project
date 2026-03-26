@@ -76,6 +76,48 @@ app.post('/api/systems', verifyToken, async (req, res) => {
   }
 });
 
+// PUT: Систем засварлах
+app.put('/api/systems/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { systemName, type, rating, description, relatedSystems, developer, duration, isActive } = req.body;
+
+    const check = await pool.query(
+      'SELECT id FROM systems WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: 'Систем олдсонгүй эсвэл эрх байхгүй' });
+    }
+
+    const result = await pool.query(
+      `UPDATE systems SET
+        system_name = $1, type = $2, rating = $3, description = $4,
+        related_systems = $5, developer = $6, duration = $7, is_active = $8
+       WHERE id = $9 AND user_id = $10
+       RETURNING *`,
+      [
+        systemName,
+        type || 'Карт',
+        rating || 0,
+        description || '',
+        relatedSystems || [],
+        developer || '',
+        duration || null,
+        isActive !== undefined ? isActive : true,
+        id,
+        req.user.id,
+      ]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('PUT systems алдаа:', error);
+    res.status(500).json({ error: 'Серверийн алдаа гарлаа' });
+  }
+});
+
 // DELETE: Систем устгах
 app.delete('/api/systems/:id', verifyToken, async (req, res) => {
   try {

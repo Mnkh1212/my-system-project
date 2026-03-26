@@ -7,6 +7,9 @@ const Dashboard = ({ onLogout, onGoToRegister }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('systems');
+  const [editSystem, setEditSystem] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState(null);
 
   const authHeader = { Authorization: `Bearer ${user.token}` };
 
@@ -42,6 +45,57 @@ const Dashboard = ({ onLogout, onGoToRegister }) => {
       if (res.ok) setSystems((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
       console.error('Delete алдаа:', err);
+    }
+  };
+
+  const openEdit = (s) => {
+    setEditError(null);
+    setEditSystem({
+      id: s.id,
+      systemName: s.system_name,
+      type: s.type,
+      rating: s.rating || '',
+      description: s.description || '',
+      developer: s.developer || '',
+      duration: s.duration ? s.duration.slice(0, 10) : '',
+      isActive: s.is_active,
+    });
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setEditSystem((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleEditSave = async (e) => {
+    e.preventDefault();
+    setEditError(null);
+    setEditLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5001/api/systems/${editSystem.id}`, {
+        method: 'PUT',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...editSystem,
+          rating: Number(editSystem.rating) || 0,
+          duration: editSystem.duration || null,
+          relatedSystems: [],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEditError(data.error || 'Засварлахад алдаа гарлаа');
+        return;
+      }
+      setSystems((prev) => prev.map((s) => (s.id === data.id ? data : s)));
+      setEditSystem(null);
+    } catch {
+      setEditError('Сервертэй холбогдох үед алдаа гарлаа');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -152,12 +206,14 @@ const Dashboard = ({ onLogout, onGoToRegister }) => {
                           <div className="system-card-developer">👨‍💻 {s.developer}</div>
                         )}
                       </div>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(s.id)}
-                      >
-                        Устгах
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => openEdit(s)}>
+                          Засах
+                        </button>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(s.id)}>
+                          Устгах
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -195,6 +251,107 @@ const Dashboard = ({ onLogout, onGoToRegister }) => {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editSystem && (
+        <div className="modal-overlay" onClick={() => setEditSystem(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Систем засварлах</h2>
+              <button className="modal-close" onClick={() => setEditSystem(null)}>✕</button>
+            </div>
+
+            {editError && <div className="error-msg">{editError}</div>}
+
+            <form onSubmit={handleEditSave}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Системийн нэр *</label>
+                  <input
+                    type="text"
+                    name="systemName"
+                    value={editSystem.systemName}
+                    onChange={handleEditChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Төрөл</label>
+                  <select name="type" value={editSystem.type} onChange={handleEditChange}>
+                    <option value="Карт">Карт</option>
+                    <option value="Интернет банк">Интернет банк</option>
+                    <option value="Мобайл апп">Мобайл апп</option>
+                    <option value="API">API</option>
+                    <option value="Бусад">Бусад</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Хөгжүүлэгч</label>
+                  <input
+                    type="text"
+                    name="developer"
+                    value={editSystem.developer}
+                    onChange={handleEditChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Үнэлгээ (0 — 10)</label>
+                  <input
+                    type="number"
+                    name="rating"
+                    value={editSystem.rating}
+                    onChange={handleEditChange}
+                    min="0"
+                    max="10"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Тайлбар</label>
+                <textarea
+                  name="description"
+                  value={editSystem.description}
+                  onChange={handleEditChange}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Хугацаа</label>
+                <input
+                  type="date"
+                  name="duration"
+                  value={editSystem.duration}
+                  onChange={handleEditChange}
+                />
+              </div>
+
+              <div className="checkbox-group">
+                <input
+                  type="checkbox"
+                  id="editIsActive"
+                  name="isActive"
+                  checked={editSystem.isActive}
+                  onChange={handleEditChange}
+                />
+                <label htmlFor="editIsActive">Систем идэвхтэй байна</label>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setEditSystem(null)}>
+                  Цуцлах
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={editLoading}>
+                  {editLoading ? 'Хадгалж байна...' : '✓ Хадгалах'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
