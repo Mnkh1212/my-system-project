@@ -20,7 +20,7 @@ const Dashboard = ({ onLogout, onGoToRegister }) => {
     } catch (err) {
       console.error('Systems fetch алдаа:', err);
     }
-  }, [user.token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user.token]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -29,7 +29,7 @@ const Dashboard = ({ onLogout, onGoToRegister }) => {
     } catch (err) {
       console.error('Users fetch алдаа:', err);
     }
-  }, [user.token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user.token]); 
 
   useEffect(() => {
     Promise.all([fetchSystems(), fetchUsers()]).finally(() => setLoading(false));
